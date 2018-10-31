@@ -1,5 +1,5 @@
 /*
-Package justClaims provides an API for extraordinarily simple access of token claims in a cookie. It wraps github.com/dgrijalva/jwt-go and returns/takes a go Map. It assumes one token, one cookie, but you can instantiate it multiple times. It, like other just* packages, is instantiated/configured through a structure to define its behavior. Simplicity does not generally come at the cost of performance, but we will be dropping hashmaps down the road.
+Package justClaims provides an API for extraordinarily simple access of token claims in a cookie. It wraps www.github.com/dgrijalva/jwt-go and returns/takes a go Map. It assumes one token, one cookie, but you can instantiate it multiple times. It, like other just* packages, is instantiated/configured through a structure to define its behavior. Simplicity does not generally come at the cost of performance, but we will be dropping hashmaps down the road.
 
 See https://github.com/autopogo/GoServerSkeleton for a basic usage
 */
@@ -13,8 +13,8 @@ import (
     log "github.com/autopogo/justLogging"
 )
 
-// JustClaimsConfig is a configuration structure to set constants needed when the server is live.
-type JustClaimsConfig struct {
+// Config is a configuration structure to set constants needed when the server is live.
+type Config struct {
     Jwt_key string // Jwt_key defines the JWT Signing Hash Key
 		Cookie_name string // Cookie_name defines the name of the cookie to store it in
 		Cookie_persistent bool // If this is set to false, no expiry is set, which means it expires on window close (a UX hint)
@@ -27,10 +27,10 @@ type JustClaimsConfig struct {
 		// TODO: adapter for HandlerFunc Factory (not a member)
 }
 
-// ReadJWT reads and returns claims, right now a MapClaims
-// It returns empty claims if there is no cookie or if they were invalid
-// It will refresh them according to MandatoryTokenRefresh*
-func (jCC *JustClaimsConfig) ReadClaims(w http.ResponseWriter, r *http.Request) (claims jwt.MapClaims, err error) {
+// GetClaims reads and returns claims.
+// It returns empty claims if there is no cookie or if they were invalid.
+// It will refresh them according to MandatoryTokenRefresh*.
+func (jCC *Config) GetClaims(w http.ResponseWriter, r *http.Request) (claims jwt.MapClaims, err error) {
 	var t *jwt.Token
 
 	// Grabbing cookie
@@ -68,8 +68,8 @@ func (jCC *JustClaimsConfig) ReadClaims(w http.ResponseWriter, r *http.Request) 
 	return
 }
 
-// SetClaims will sign and set the claims based on defaults set in JustClaimsConfig
-func (jCC *JustClaimsConfig) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims){
+// SetClaims will sign and set the claims based on defaults set in Config.
+func (jCC *Config) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims){
 	cookie := &http.Cookie{ Name: jCC.Cookie_name,
 		Secure: jCC.Cookie_https,
 		HttpOnly: jCC.Cookie_server_only }
@@ -86,8 +86,8 @@ func (jCC *JustClaimsConfig) SetClaims(w http.ResponseWriter, r *http.Request, c
 }
 
 
-// updateExperies just handles writing time values to the cookie and JWT
-func (jCC *JustClaimsConfig) updateExpiries(cookie *http.Cookie, claims jwt.MapClaims) {
+// updateExperies just handles writing time values to the cookie and JWT.
+func (jCC *Config) updateExpiries(cookie *http.Cookie, claims jwt.MapClaims) {
 	if (jCC.Cookie_persistent) {
 		cookie.Expires = time.Now().Add(time.Duration(jCC.LifeSpanNano))
 		cookie.MaxAge = 0
@@ -98,16 +98,17 @@ func (jCC *JustClaimsConfig) updateExpiries(cookie *http.Cookie, claims jwt.MapC
 	claims["exp"] = time.Now().Unix()
 }
 
-// DeleteClaims just deletes the cookie
-func (jCC *JustClaimsConfig) DeleteClaims(w http.ResponseWriter) (err error) {
+// DeleteClaims just deletes the cookie.
+func (jCC *Config) DeleteClaims(w http.ResponseWriter) (err error) {
 	http.SetCookie(w, &http.Cookie{Name: jCC.Cookie_name, MaxAge: -1})
 	// I left out things not set as optional but...
 	// TODO return error
 	return nil
 }
+
 /*
 // Newclaims does nothing but I think would initialize the claims to some kind of basic, although this maybe be per-instance function.
-func (ac *JustClaimsConfig) NewClaims(seconds int) (claims jwt.Claims, err error) {
+func (ac *Config) NewClaims(seconds int) (claims jwt.Claims, err error) {
 	//create basic claims, i guess. not important.
 	return nil, nil
 }
@@ -136,7 +137,7 @@ func (ac *JustClaimsConfig) NewClaims(seconds int) (claims jwt.Claims, err error
 // Author's notes:
 
 
-// In main or handler page: set JustClaimsConfig.
+// In main or handler page: set Config.
 // ***Not built: a context(s) can implement ServeHTTP directly, and each Handler defines its credentials
 
 // ***a (Handler interface satisfying) type that takes a context(s) (via pointer/structure/array) (probably initialized by function)
