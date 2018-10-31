@@ -1,5 +1,5 @@
 /*
-Package justClaims provides an API for extraordinarily simple access of token claims in a cookie. It assumes one token, one cookie. It, like other just* packages, is configured through a structure and uses that information to define its behavior. It is an extraordinarily simple package.
+Package justClaims provides an API for extraordinarily simple access of token claims in a cookie. It wraps github.com/dgrijalva/jwt-go and returns/takes a go Map. It assumes one token, one cookie, but you can instantiate it multiple times. It, like other just* packages, is instantiated/configured through a structure to define its behavior. Simplicity does not generally come at the cost of performance, but we will be dropping hashmaps down the road.
 
 See https://github.com/autopogo/GoServerSkeleton for a basic usage
 */
@@ -26,10 +26,7 @@ type JustClaimsConfig struct {
 		// TODO: adapter for HTTPServe
 		// TODO: adapter for HandlerFunc Factory (not a member)
 }
-func (jCC *JustClaimsConfig) GetVersion() (version string) {
-	return "hello"
 
-}
 // ReadJWT reads and returns claims, right now a MapClaims
 // It returns empty claims if there is no cookie or if they were invalid
 // It will refresh them according to MandatoryTokenRefresh*
