@@ -14,7 +14,8 @@ AJ put this away...
 
   * Interface/Basic API requirements for token stuff(<-- generalize it to a user-storage interface, include reading Auth)
   * Should Handlers share tokens? Create their own tokens? How do we negotiate security levels and mitigate collisions?
-  * Error Handling (add custom errors)
   * Logging needs work, not sure if that's this repo tho (look at logging repo)
 	* Tests (Test)
+	* Add authorization decoder
+	* Figure out how to get rid of maps
 

@@ -8,7 +8,7 @@ package justClaims
 import (
     "net/http"
     "time"
-
+		"errors"
     "gopkg.in/dgrijalva/jwt-go.v3"
     log "github.com/autopogo/justLogging"
 )
@@ -26,7 +26,10 @@ type Config struct {
 		// TODO: adapter for HTTPServe
 		// TODO: adapter for HandlerFunc Factory (not a member)
 }
-
+var (
+		ErrInternal = errors.New("internal error")
+		ErrBadClaim = errors.New("bad claims")
+)
 // GetClaims reads and returns claims.
 // It returns empty claims if there is no cookie or if they were invalid.
 // It will refresh them according to MandatoryTokenRefresh*.
@@ -36,49 +39,45 @@ func (jCC *Config) GetClaims(w http.ResponseWriter, r *http.Request) (claims jwt
 	// Grabbing cookie
 	if cookie, err := r.Cookie(jCC.Cookie_name); err != nil {
 		if (err == http.ErrNoCookie) {
-			log.Enterf("ReadJWT: No Cookie, returning empty map");
-			return make(map[string]interface{}), nil // initializes the map... ?
+			log.Enterf("justClaims GetClaims: No Cookie, returning nil map: %v", err);
+			return nil, nil
 		}
-		log.Errorf("Weird error trying to find cookie");
-		return nil, err
+		log.Errorf("justClaims GetClaims: Weird error trying to find cookie: %v", err);
+		return nil, ErrInternal
 	} else {
-		t, err = jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) { // parses... ?
+		if t, err = jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
 			return []byte(jCC.Jwt_key), nil
-		})
-		log.Enterf("ReadJWT: Token parsed")
+		}); err != nil {
+			log.Errorf("justClaims GetClaims: Weird error parsing the JWT: %v", err);
+		}
 	}
 
-	// Checking if valid
-	if valid_ok := t.Valid; valid_ok { // how does it know what valid to call?
-		claims = t.Claims.(jwt.MapClaims)
-		log.Enterf("ReadJWT: Claimers were valid, seeing if I should refresh")
 
-		// relies on MapClaims interface, must be typeswitch?
-		// if the implementer builds a custom claims type- not a map, but a struct, whatever, they
-		// will have to supply a function to get the exp date
+	if t.Valid {
+		claims = t.Claims.(jwt.MapClaims) // is this assertion necessary? it's default in the Parse()
 		if _, ok := claims["exp"]; ok && jCC.MandatoryTokenRefresh {
 			//TODO if exp < MandatoryTokenRefreshThreshold time (chang _ to val)
-			log.Enterf("ReadJWT: Refreshing token")
 			jCC.SetClaims(w, r, claims)
+			err = nil
 		}
 	} else {
-		claims = make(map[string]interface{}) // again, initializing the map ...?
-		log.Enterf("ReadJWT: Claims were invalid, returning empty map")
+		claims = nil
+		err = ErrBadClaim
 	}
 	return
 }
 
 // SetClaims will sign and set the claims based on defaults set in Config.
-func (jCC *Config) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims){
+func (jCC *Config) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims) (err error) {
 	cookie := &http.Cookie{ Name: jCC.Cookie_name,
 		Secure: jCC.Cookie_https,
 		HttpOnly: jCC.Cookie_server_only }
 	jCC.updateExpiries(cookie, claims)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	if ss, err := token.SignedString([]byte(jCC.Jwt_key)); err != nil {
-		log.Errorf("Couldn't unsign the encrypted string: %v", err)
+		log.Errorf("justClaims SetClaims: Couldn't sign the encrypted string: %v", err)
+		return ErrBadClaim
 	} else {
-		log.Enterf("SetClaims: Attempting to set cookie")
 		cookie.Value = ss;
 		http.SetCookie(w, cookie)
 	}
@@ -99,11 +98,8 @@ func (jCC *Config) updateExpiries(cookie *http.Cookie, claims jwt.MapClaims) {
 }
 
 // DeleteClaims just deletes the cookie.
-func (jCC *Config) DeleteClaims(w http.ResponseWriter) (err error) {
+func (jCC *Config) DeleteClaims(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: jCC.Cookie_name, MaxAge: -1})
-	// I left out things not set as optional but...
-	// TODO return error
-	return nil
 }
 
 /*
