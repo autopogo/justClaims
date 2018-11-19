@@ -22,7 +22,7 @@ type Config struct {
 		Cookie_server_only bool // Cookie not accessible to client (prevents XSS in modern browsers)
 		MandatoryTokenRefresh bool // The token/cookie will be autorefresh on read
 		MandatoryTokenRefreshThreshold float32  // Autorefresh will only occur if it is < this * LifeSpanNano
-		LifeSpanNano int64 // Nanoseconds jwt+cookie have alive (if cookie persistent)
+		LifeSpan int64 // Seconds jwt+cookie have alive (if cookie persistent)
 		// TODO: adapter for HTTPServe
 		// TODO: adapter for HandlerFunc Factory (not a member)
 }
@@ -45,6 +45,7 @@ func (jCC *Config) GetClaims(w http.ResponseWriter, r *http.Request) (claims jwt
 		log.Errorf("justClaims GetClaims: Weird error trying to find cookie: %v", err);
 		return nil, ErrInternal
 	} else {
+		log.Enterf("justClaims GetClaims: Received Token: %v", cookie.Value)
 		if t, err = jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
 			return []byte(jCC.Jwt_key), nil
 		}); err != nil {
@@ -57,6 +58,7 @@ func (jCC *Config) GetClaims(w http.ResponseWriter, r *http.Request) (claims jwt
 		claims = t.Claims.(jwt.MapClaims) // is this assertion necessary? it's default in the Parse()
 		if _, ok := claims["exp"]; ok && jCC.MandatoryTokenRefresh {
 			//TODO if exp < MandatoryTokenRefreshThreshold time (chang _ to val)
+			log.Enterf("justCLiams GetClaims: Setting claims due to threshhold")
 			jCC.SetClaims(w, r, claims)
 			err = nil
 		}
@@ -79,6 +81,7 @@ func (jCC *Config) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.
 		return ErrBadClaim
 	} else {
 		cookie.Value = ss;
+		log.Enterf("justClaims SetClaims: Setting: %v", ss)
 		http.SetCookie(w, cookie)
 	}
 	return
@@ -88,13 +91,14 @@ func (jCC *Config) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.
 // updateExperies just handles writing time values to the cookie and JWT.
 func (jCC *Config) updateExpiries(cookie *http.Cookie, claims jwt.MapClaims) {
 	if (jCC.Cookie_persistent) {
-		cookie.Expires = time.Now().Add(time.Duration(jCC.LifeSpanNano))
+		cookie.Expires = time.Now().Add(time.Duration(jCC.LifeSpan * int64(time.Second)))
+		log.Enterf("Time exp: %v", time.Now().Add(time.Duration(jCC.LifeSpan*1e9)))
 		cookie.MaxAge = 0
 	} else {
 		cookie.MaxAge = 0
 		cookie.Expires = time.Time{}
 	}
-	claims["exp"] = time.Now().Unix()
+	claims["exp"] = time.Now().Unix() + (jCC.LifeSpan)
 }
 
 // DeleteClaims just deletes the cookie.
