@@ -14,7 +14,7 @@ import (
 )
 
 // Config is a configuration structure to set constants needed when the server is live.
-type Config struct {
+type ClaimsConfig struct { // BUG: Name Config is prone to conflicts
     Jwt_key string // Jwt_key defines the JWT Signing Hash Key
 		Cookie_name string // Cookie_name defines the name of the cookie to store it in
 		Cookie_persistent bool // If this is set to false, no expiry is set, which means it expires on window close (a UX hint)
@@ -23,17 +23,17 @@ type Config struct {
 		MandatoryTokenRefresh bool // The token/cookie will be autorefresh on read
 		MandatoryTokenRefreshThreshold float32  // Autorefresh will only occur if it is < this * LifeSpanNano
 		LifeSpan int64 // Seconds jwt+cookie have alive (if cookie persistent)
-		// TODO: adapter for HTTPServe
-		// TODO: adapter for HandlerFunc Factory (not a member)
 }
+
 var (
-		ErrInternal = errors.New("internal error")
-		ErrBadClaim = errors.New("bad claims")
+ ErrInternal = errors.New("justClaims: internal error")
+ ErrBadClaim = errors.New("justClaims: bad claims")
 )
+
 // GetClaims reads and returns claims.
 // It returns empty claims if there is no cookie or if they were invalid.
 // It will refresh them according to MandatoryTokenRefresh*.
-func (jCC *Config) GetClaims(w http.ResponseWriter, r *http.Request) (claims jwt.MapClaims, err error) {
+func (jCC *ClaimsConfig) GetClaims(w http.ResponseWriter, r *http.Request) (claims jwt.MapClaims, err error) {
 	var t *jwt.Token
 
 	// Grabbing cookie
@@ -70,7 +70,7 @@ func (jCC *Config) GetClaims(w http.ResponseWriter, r *http.Request) (claims jwt
 }
 
 // SetClaims will sign and set the claims based on defaults set in Config.
-func (jCC *Config) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims) (err error) {
+func (jCC *ClaimsConfig) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.MapClaims) (err error) {
 	cookie := &http.Cookie{ Name: jCC.Cookie_name,
 		Secure: jCC.Cookie_https,
 		HttpOnly: jCC.Cookie_server_only }
@@ -89,7 +89,7 @@ func (jCC *Config) SetClaims(w http.ResponseWriter, r *http.Request, claims jwt.
 
 
 // updateExperies just handles writing time values to the cookie and JWT.
-func (jCC *Config) updateExpiries(cookie *http.Cookie, claims jwt.MapClaims) {
+func (jCC *ClaimsConfig) updateExpiries(cookie *http.Cookie, claims jwt.MapClaims) {
 	if (jCC.Cookie_persistent) {
 		cookie.Expires = time.Now().Add(time.Duration(jCC.LifeSpan * int64(time.Second)))
 		log.Enterf("Time exp: %v", time.Now().Add(time.Duration(jCC.LifeSpan*1e9)))
@@ -102,13 +102,13 @@ func (jCC *Config) updateExpiries(cookie *http.Cookie, claims jwt.MapClaims) {
 }
 
 // DeleteClaims just deletes the cookie.
-func (jCC *Config) DeleteClaims(w http.ResponseWriter) {
+func (jCC *ClaimsConfig) DeleteClaims(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: jCC.Cookie_name, MaxAge: -1})
 }
 
 /*
 // Newclaims does nothing but I think would initialize the claims to some kind of basic, although this maybe be per-instance function.
-func (ac *Config) NewClaims(seconds int) (claims jwt.Claims, err error) {
+func (ac *ClaimsConfig) NewClaims(seconds int) (claims jwt.Claims, err error) {
 	//create basic claims, i guess. not important.
 	return nil, nil
 }
