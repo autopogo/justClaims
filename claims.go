@@ -39,17 +39,18 @@ func (jCC *ClaimsConfig) GetClaims(w http.ResponseWriter, r *http.Request) (clai
 	// Grabbing cookie
 	if cookie, err := r.Cookie(jCC.Cookie_name); err != nil {
 		if (err == http.ErrNoCookie) {
-			log.Enterf("justClaims GetClaims: No Cookie, returning nil map: %v", err);
-			return nil, nil
+			log.Enterf("justClaims GetClaims: No Cookie, returning empty map: %v", err);
+			return make(map[string]interface{}), nil
 		}
 		log.Errorf("justClaims GetClaims: Weird error trying to find cookie: %v", err);
-		return nil, ErrInternal
+		return make(map[string]interface{}), ErrInternal
 	} else {
 		log.Enterf("justClaims GetClaims: Received Token: %v", cookie.Value)
 		if t, err = jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
 			return []byte(jCC.Jwt_key), nil
 		}); err != nil {
 			log.Errorf("justClaims GetClaims: Weird error parsing the JWT: %v", err);
+			return make(map[string]interface{}), ErrInternal
 		}
 	}
 
@@ -63,7 +64,7 @@ func (jCC *ClaimsConfig) GetClaims(w http.ResponseWriter, r *http.Request) (clai
 			err = nil
 		}
 	} else {
-		claims = nil
+		claims = make(map[string]interface{})
 		err = ErrBadClaim
 	}
 	return
